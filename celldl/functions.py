@@ -1,6 +1,7 @@
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
+import scipy
 import anndata
 import tensorflow as tf
 from tensorflow_probability import distributions as tfd
@@ -9,7 +10,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import adjusted_mutual_info_score
 from scipy.stats import spearmanr
 import scanpy as sc
-from scipy.spatial import cKDTree
 import warnings
 warnings.filterwarnings('ignore')
 from tf_keras import layers, models, losses, callbacks, initializers
@@ -23,19 +23,6 @@ PReLU = layers.PReLU
 EarlyStopping = callbacks.EarlyStopping
 MeanSquaredError = losses.MeanSquaredError
 load_model = models.load_model
-
-# 定义全局配置
-CONFIG = {
-    "data_path": "/mnt/d/sc_ST_data/Alzheimer.h5ad",
-    "model_save_path": "CellDL_ad_healthy.keras",
-    "data_params": {
-        "assay": "10x 3' v3",
-        "ID": "Reprogrammed CD45+ PBMCs, unknown donor",
-        "gene_mean_min": 0.0125,
-        "gene_mean_max": 3,
-        "gene_disp_min": 0.5
-    }
-}
 
 # NB
 # r 是离散度参数，theta 是成功概率
@@ -396,24 +383,6 @@ def train_model(model, scobj, lr=0.001, batch_size=32, epochs=3000):  # 原batch
     )
     return history
 
-# def evaluate_model(scobj, annotation_obsname='cell_type', n_neighbors=30):
-#     """
-#     评估模型的聚类性能。
-
-#     参数：
-#     - scobj: 包含模型输出的AnnData对象
-#     - annotation_obsname: 注释列名
-#     - n_neighbors: 邻居数
-
-#     返回：
-#     - ami_score: 调整互信息评分
-#     """
-#     sc.pp.neighbors(scobj, n_neighbors=n_neighbors, metric='cosine')
-#     sc.tl.leiden(scobj)
-#     sc.tl.umap(scobj)
-#     ami_score = adjusted_mutual_info_score(scobj.obs["leiden"], scobj.obs[annotation_obsname])
-#     return ami_score
-
 
 def denoise_data(model, scobj):
     """
@@ -501,108 +470,8 @@ def load_trained_model(filepath):
     model = load_model(filepath, custom_objects=custom_objects, safe_mode=False)
     return model
 
-def generate_spatial_synthetic_data_optimized(scobj, model, k=6, n=3, noise_scale=0.0001):
-    """
-    根据空间转录组数据生成合成数据，并记录零膨胀泊松分布的参数（优化版本）。
 
-    参数：
-    - scobj: 包含原始空间转录组数据的 AnnData 对象
-    - model: 训练好的 CellDL 模型
-    - k: 最近邻细胞的数量，默认是 6
-    - n: 每对坐标之间生成的合成数据数量，默认是 3
-    - noise_scale: 转录组扰动比例，默认是 0.0001
-
-    返回：
-    - synthetic_scobj: 包含生成的合成数据的 AnnData 对象，并记录零膨胀泊松分布参数
-    """
-    # 1. 降噪数据并提取参数
-    X_input = scobj.obsm["X_input"]
-    lambda_model = Model(inputs=model.inputs, outputs=model.get_layer("rna_lambda_").output)
-    zerorate_model = Model(inputs=model.inputs, outputs=model.get_layer("rna_zerorate").output)
-
-    lambda_all = lambda_model.predict(X_input, batch_size=128)
-    zerorate_all = zerorate_model.predict(X_input, batch_size=128)
-
-    scobj.obsm["rna_lambda_"] = lambda_all
-    scobj.obsm["rna_zerorate"] = zerorate_all
-
-    # 2. 检查空间坐标
-    if "X_spatial" not in scobj.obsm:
-        raise ValueError("scobj.obsm['X_spatial'] 不存在，无法生成空间合成数据。")
-    spatial_all = scobj.obsm["X_spatial"]
-
-    # 3. 最近邻计算
-    tree = cKDTree(spatial_all)
-    distances, indices = tree.query(spatial_all, k=k)
-
-    # 动态确定实际邻居数量
-    actual_total_synthetic = sum(min(len(neighbors), k - 1) * n for neighbors in indices)
-    num_genes = lambda_all.shape[1]
-    spatial_dim = spatial_all.shape[1]
-
-    # 4. 初始化结果存储
-    synthetic_data = np.zeros((actual_total_synthetic, num_genes), dtype=np.float32)
-    synthetic_spatial = np.zeros((actual_total_synthetic, spatial_dim), dtype=np.float32)
-    synthetic_lambda = np.zeros((actual_total_synthetic, num_genes), dtype=np.float32)
-    synthetic_zerorate = np.zeros((actual_total_synthetic, num_genes), dtype=np.float32)
-    synthetic_obs = np.empty(actual_total_synthetic, dtype=object)
-
-    # 插值因子预计算
-    interp_factors = np.linspace(0, 1, n + 2, endpoint=True)[1:-1]  # 不包括 0 和 1
-
-    # 5. 插值生成
-    index = 0  # 用于追踪写入位置
-    for i in tqdm(range(len(spatial_all)), desc="Generating synthetic data"):
-        lambda_center = lambda_all[i]
-        zerorate_center = zerorate_all[i]
-        spatial_center = spatial_all[i]
-
-        # 获取最近邻细胞的参数
-        neighbor_indices = indices[i][1:]  # 排除自身
-        num_neighbors = min(len(neighbor_indices), k - 1)  # 实际有效邻居数量
-        lambda_neighbors = lambda_all[neighbor_indices[:num_neighbors]]
-        zerorate_neighbors = zerorate_all[neighbor_indices[:num_neighbors]]
-        spatial_neighbors = spatial_all[neighbor_indices[:num_neighbors]]
-
-        # 插值和存储
-        for factor in interp_factors:
-            lambda_interp = (1 - factor) * lambda_center + factor * lambda_neighbors
-            zerorate_interp = (1 - factor) * zerorate_center + factor * zerorate_neighbors
-            spatial_interp = (1 - factor) * spatial_center + factor * spatial_neighbors
-
-            # 添加随机噪声
-            lambda_interp += np.random.uniform(-noise_scale, noise_scale, lambda_interp.shape)
-            zerorate_interp += np.random.uniform(-noise_scale, noise_scale, zerorate_interp.shape)
-
-            # 确保非负
-            lambda_interp = np.clip(lambda_interp, 0, None)
-            zerorate_interp = np.clip(zerorate_interp, 0, None)
-
-            # 计算表达值
-            synthetic_batch_size = len(lambda_neighbors)
-            synthetic_data[index:index + synthetic_batch_size] = lambda_interp * (1 - zerorate_interp)
-            synthetic_spatial[index:index + synthetic_batch_size] = spatial_interp
-            synthetic_lambda[index:index + synthetic_batch_size] = lambda_interp
-            synthetic_zerorate[index:index + synthetic_batch_size] = zerorate_interp
-            synthetic_obs[index:index + synthetic_batch_size] = [scobj.obs.iloc[i].to_dict()] * synthetic_batch_size
-            index += synthetic_batch_size
-
-    # 6. 创建新的 AnnData 对象
-    synthetic_obs_df = pd.DataFrame(list(synthetic_obs))
-    synthetic_scobj = anndata.AnnData(
-        X=synthetic_data,
-        obs=synthetic_obs_df,
-        var=scobj.var.copy()
-    )
-    synthetic_scobj.obsm["X_spatial"] = synthetic_spatial
-    synthetic_scobj.obsm["rna_lambda_"] = synthetic_lambda
-    synthetic_scobj.obsm["rna_zerorate"] = synthetic_zerorate
-    synthetic_scobj.uns = scobj.uns.copy()
-
-    return synthetic_scobj
-
-
-def generate_sc_synthetic_data(scobj, model, num_samples=1, deviation_scale=0.1):
+def generate_sc_synthetic_data(model, scobj, num_samples=1, deviation_scale=0.1):
     """
     生成围绕均值的小范围随机扰动的合成数据。
 
@@ -657,41 +526,52 @@ def generate_sc_synthetic_data(scobj, model, num_samples=1, deviation_scale=0.1)
     return synthetic_scobj
 
 
-# 单细胞处理函数
-def data_preprocessing(scobj, assay, ID, gene_mean_min, gene_mean_max, gene_disp_min):
+
+def data_preprocessing(scobj, assay=None, ID=None, gene_mean_min=0.0125, gene_mean_max=3, gene_disp_min=0.5):
+    """
+    Preprocess single-cell data for CellDL: filter, normalize, and select HVGs.
+
+    Args:
+        scobj: AnnData object.
+        assay: (Optional) Filter by 'assay' column.
+        ID: (Optional) Filter by 'donor_id' column.
+        gene_mean_min/max, gene_disp_min: Thresholds for Highly Variable Genes.
+
+    Returns:
+        AnnData object with prepared input in `.obsm['X_input']`.
+    """
+    # Use raw counts if available
     if scobj.raw is not None:
         scobj.X = scobj.raw.X
     scobj.var_names_make_unique()
-    # scobj = scobj[scobj.obs['assay']==assay]
-    # scobj = scobj[scobj.obs['donor_id']==ID]
-    scobj.var.index = pd.Index(scobj.var['feature_name'].values)
+
+    # Filter by assay or ID if specified and columns exist
+    if assay is not None:
+        if 'assay' in scobj.obs.columns:
+            scobj = scobj[scobj.obs['assay'] == assay].copy()
+        else:
+            warnings.warn(f"'assay' column missing; skipping filter assay='{assay}'.")
+
+    if ID is not None:
+        if 'donor_id' in scobj.obs.columns:
+            scobj = scobj[scobj.obs['donor_id'] == ID].copy()
+        else:
+            warnings.warn(f"'donor_id' column missing; skipping filter ID='{ID}'.")
+
+    # Use feature names if available
+    if 'feature_name' in scobj.var.columns:
+        scobj.var.index = pd.Index(scobj.var['feature_name'].values)
+
+    # Standard preprocessing
     sc.pp.log1p(scobj)
     sc.pp.highly_variable_genes(scobj, min_mean=gene_mean_min, max_mean=gene_mean_max, min_disp=gene_disp_min)
-    scobj = scobj[:, scobj.var["highly_variable"]]
-    scobj.obsm["rna_nor"] = scobj.X.toarray()
-    scobj.obsm["X_input"] = 1 + scobj.obsm["rna_nor"]
+    scobj = scobj[:, scobj.var["highly_variable"]].copy()
+
+    # Prepare dense input for model (handle sparse matrices)
+    scobj.obsm["rna_nor"] = scobj.X.toarray() if scipy.sparse.issparse(scobj.X) else scobj.X
+
+    # Scale data (StandardScaler)
     scaler = StandardScaler()
-    scobj.obsm["X_input"] = scaler.fit_transform(scobj.obsm["X_input"])
+    scobj.obsm["X_input"] = scaler.fit_transform(1 + scobj.obsm["rna_nor"])
+
     return scobj
-
-# "D:\sc_ST_data/空间转录组数据/hindlimb_3360.h5ad"
-def main_train():
-    # 数据加载和预处理
-    scobj = sc.read_h5ad("/mnt/d/sc_ST_data/thymus_4686.h5ad")
-    scobj = scobj[scobj.obs['in_tissue'] == 1, :]
-    # scobj = scobj[scobj.obs['cell_type'] != 'unknown', :]
-    scobj = scobj[scobj.obs['disease'] == 'normal', :]
-    scobj = data_preprocessing(scobj, assay="10x 3' v3", ID='Reprogrammed CD45+ PBMCs, unknown donor',
-                               gene_mean_min=0.0125, gene_mean_max=3, gene_disp_min=0.5)
-
-    # 构建并训练模型
-    model = build_model(scobj, mode='IZIP_mode')
-    train_model(model, scobj, epochs=100)
-
-    # 保存模型
-    save_trained_model(model, 'CellDL_embryo.keras')
-    print("模型训练完成并已保存")
-
-
-if __name__ == "__main__":
-    main_train()
