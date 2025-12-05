@@ -1,5 +1,0 @@
-setup.py
-CellDL.egg-info/PKG-INFO
-CellDL.egg-info/SOURCES.txt
-CellDL.egg-info/dependency_links.txt
-CellDL.egg-info/top_level.txt
