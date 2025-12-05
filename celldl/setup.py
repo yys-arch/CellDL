@@ -5,7 +5,7 @@ setup(
     version='0.1.0',
     author='Yin yusong',
     author_email='yyusong526@gmail.com',
-    description='CellDL: A Generative Framework for Explicit Distribution Learning in Single-Cell RNA Sequencing',
+    description='CellDL: Defining Cell Identity by Learning Transcriptome Distributions from Single-Cell Data',
     packages=find_packages(),
     classifiers=[
         'Programming Language :: Python :: 3',
