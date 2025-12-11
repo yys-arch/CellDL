@@ -55,7 +55,7 @@ CellDL provides a robust preprocessing pipeline including HVG selection and norm
 
 ```python
 import scanpy as sc
-from CellDL import data_preprocessing
+from celldl import data_preprocessing
 
 # Load data
 adata = sc.read_h5ad("your_data.h5ad")
@@ -74,7 +74,7 @@ adata = data_preprocessing(
 Initialize and train the model using one of the supported distribution modes. The paper highlights the **IZIP (Independent Zero-Inflated Poisson)** mode.
 
 ```python
-from CellDL import build_model, train_model, save_trained_model
+from celldl import build_model, train_model, save_trained_model
 
 # Build model with IZIP distribution (Recommended)
 model = build_model(adata, mode='IZIP_mode', bottle_dim=512)
@@ -90,7 +90,7 @@ save_trained_model(model, 'models/celldl_model.keras')
 Reconstruct gene expression using the expected value of the inferred distribution.
 
 ```python
-from CellDL import load_trained_model, denoise_data
+from celldl import load_trained_model, denoise_data
 
 model = load_trained_model('models/celldl_model.keras')
 adata_denoised = denoise_data(model, adata)
@@ -103,7 +103,7 @@ print(adata_denoised.obsm['rna_denoised'])
 Generate synthetic cells to augment rare populations by perturbing the learned parameters.
 
 ```python
-from CellDL import generate_sc_synthetic_data
+from celldl import generate_sc_synthetic_data
 
 # Generate 5 synthetic cells for every original cell
 adata_synthetic = generate_sc_synthetic_data(model, adata, num_samples=5, deviation_scale=0.1)
