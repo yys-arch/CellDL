@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='CellDL',
-    version='0.1.0',
+    name='celldl',
+    version='0.1.2',
     author='Yin yusong',
     author_email='yyusong526@gmail.com',
     description='CellDL: Defining Cell Identity by Learning Transcriptome Distributions from Single-Cell Data',
