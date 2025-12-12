@@ -1,4 +1,4 @@
-# CellDL: Defining Cell Identity by Learning Transcriptome Distributions
+# CellDL: Defining Cell Identity by Learning Transcriptome Distributions from Single-Cell Data
 
 [![PyPI version](https://badge.fury.io/py/celldl.svg)](https://badge.fury.io/py/celldl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
