@@ -24,7 +24,7 @@ It represents each cell through a set of gene-wise probability distributions. By
 
 <div align="center">
   <img src="docs/fig1.png" alt="CellDL Architecture" width="800"/>
-  <p><em>Figure 1: Schematic of the CellDL model architecture. The model maps cells to a latent embedding and decodes them into gene-specific distributional parameters.</em></p>
+  <p><em>Schematic of the CellDL model architecture. The model maps cells to a latent embedding and decodes them into gene-specific distributional parameters.</em></p>
 </div>
 
 CellDL employs a **decoupled autoencoder architecture**:
