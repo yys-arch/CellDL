@@ -416,18 +416,36 @@ def generate_sc_synthetic_data(model, scobj, num_samples=1, deviation_scale=0.1)
     X_input = scobj.obsm["X_input"]
     num_cells, num_genes = X_input.shape
 
-    # Extract parameters and predict
-    lambda_vals = Model(inputs=model.inputs, outputs=model.get_layer("rna_lambda_").output).predict(X_input)
-    zero_vals = Model(inputs=model.inputs, outputs=model.get_layer("rna_zerorate").output).predict(X_input)
+    lambda_layer = model.get_layer("rna_lambda_")
+    zerorate_layer = model.get_layer("rna_zerorate")
 
-    # Calculate perturbed mean
-    mean_vals = np.repeat((1 - zero_vals) * lambda_vals, num_samples, axis=0)
-    noise = np.random.uniform(-deviation_scale, deviation_scale, size=mean_vals.shape) * mean_vals
-    synthetic_data = np.clip(mean_vals + noise, a_min=0, a_max=None)
+    lambda_model = Model(inputs=model.inputs, outputs=lambda_layer.output)
+    zerorate_model = Model(inputs=model.inputs, outputs=zerorate_layer.output)
 
-    # Construct metadata
+    lambda_values = lambda_model.predict(X_input)
+    zerorate_values = zerorate_model.predict(X_input)
+
+    mean_values = (1 - zerorate_values) * lambda_values
+    mean_values_repeated = np.repeat(mean_values, num_samples, axis=0)
+
+    noise = np.random.uniform(-deviation_scale, deviation_scale, size=mean_values_repeated.shape) * mean_values_repeated
+    synthetic_data = mean_values_repeated + noise
+
+    synthetic_data = np.clip(synthetic_data, a_min=0, a_max=None)
+
+
     synthetic_obs = pd.DataFrame(np.repeat(scobj.obs.values, num_samples, axis=0), columns=scobj.obs.columns)
-    synthetic_obs['original_cell_index'] = np.repeat(np.arange(num_cells), num_samples)
+    synthetic_obs.reset_index(drop=True, inplace=True)
+    synthetic_obs['original_cell_index'] = np.repeat(np.arange(num_cells), num_samples)   # ?索引也要添加原始索引吧
+
+
+    synthetic_scobj = anndata.AnnData(
+        X=synthetic_data,
+        obs=synthetic_obs,
+        var=scobj.var.copy()
+    )
+
+    return synthetic_scobj
 
 
 def data_preprocessing(scobj, assay=None, ID=None, gene_mean_min=0.0125, gene_mean_max=3, gene_disp_min=0.5):

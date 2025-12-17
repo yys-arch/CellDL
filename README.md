@@ -36,7 +36,7 @@ CellDL employs a **decoupled autoencoder architecture**:
 
 ### Install from PyPI
 ```bash
-pip install celldl==0.1.2
+pip install celldl==0.1.3
 ```
 
 ### Install from Source
