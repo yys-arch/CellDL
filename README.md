@@ -1,6 +1,6 @@
 # CellDL: Defining Cell Identity by Learning Transcriptome Distributions from Single-Cell Data
 
-[![PyPI version](https://badge.fury.io/py/celldl.svg)](https://badge.fury.io/py/celldl)
+[![PyPI version](https://badge.fury.io/py/celldl.svg?v=0.1.3)](https://badge.fury.io/py/celldl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **CellDL** is a deep probabilistic representation learning framework designed to redefine how cell identity is modeled in single-cell RNA-seq (scRNA-seq) data.
