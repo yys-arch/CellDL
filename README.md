@@ -1,13 +1,13 @@
-# CellDL: Defining Cell Identity by Learning Transcriptome Distributions from Single-Cell Data
+# CellDL: understanding cell state continuity through probabilistic transcriptome distributions
 
 [![PyPI version](https://badge.fury.io/py/celldl.svg?v=0.1.3)](https://badge.fury.io/py/celldl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**CellDL** is a deep probabilistic representation learning framework designed to redefine how cell identity is modeled in single-cell RNA-seq (scRNA-seq) data.
+CellDL is a deep probabilistic framework designed to bridge the gap between discrete single-cell measurements and the fundamentally continuous nature of biological development.
 
 ## 📖 Introduction & Motivation
 
-Cell identity defines what a cell is, how it functions, and what it can become. Currently, most computational approaches adopt a deterministic paradigm, compressing the cellular transcriptional state into a single, fixed vector. This approach treats a dynamic, stochastic entity as a static point, discarding the variability and uncertainty essential to biological nature.
+Cellular differentiation is a smooth, evolving process, yet current computational methods represent cells as deterministic "points" (vectors). This static paradigm fails to capture the inherent plasticity and stochasticity that define developmental transitions.
 
 **CellDL moves from point estimates to probabilistic representations.**
 
