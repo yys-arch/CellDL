@@ -1,6 +1,6 @@
 # CellDL: understanding cell state continuity through probabilistic transcriptome distributions
 
-[![PyPI version](https://badge.fury.io/py/celldl.svg?v=0.1.3)](https://badge.fury.io/py/celldl)
+[![PyPI version](https://img.shields.io/pypi/v/celldl.svg)](https://pypi.org/project/celldl/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 CellDL is a deep probabilistic framework designed to bridge the gap between discrete single-cell measurements and the fundamentally continuous nature of biological development.

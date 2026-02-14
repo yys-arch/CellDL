@@ -3,3 +3,5 @@ datasets/
 celldl/CellDL.egg-info/
 celldl/dist/
 .vscode/
+dist/
+celldl.egg-info/
